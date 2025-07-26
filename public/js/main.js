@@ -243,6 +243,82 @@ function downloadFile(filename) {
     localStorage.setItem('downloadCount', downloadCount);
 }
 
+// Download password-protected file
+let currentPasswordFile = null;
+
+function downloadPasswordProtectedFile(filename) {
+    currentPasswordFile = filename;
+    const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    document.getElementById('filePasswordInput').value = '';
+    document.getElementById('passwordError').style.display = 'none';
+    modal.show();
+    
+    // Focus on password input
+    setTimeout(() => {
+        document.getElementById('filePasswordInput').focus();
+    }, 500);
+}
+
+// Setup password modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Submit password on button click
+    document.getElementById('submitPasswordBtn').addEventListener('click', submitPassword);
+    
+    // Submit password on Enter key
+    document.getElementById('filePasswordInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitPassword();
+        }
+    });
+});
+
+async function submitPassword() {
+    if (!currentPasswordFile) return;
+    
+    const password = document.getElementById('filePasswordInput').value.trim();
+    if (!password) {
+        showPasswordError('Please enter a password');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/download/${currentPasswordFile}?password=${encodeURIComponent(password)}`);
+        
+        if (response.ok) {
+            // Password correct, download the file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = currentPasswordFile;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            // Close modal and update stats
+            bootstrap.Modal.getInstance(document.getElementById('passwordModal')).hide();
+            downloadCount++;
+            updateFileStats();
+            localStorage.setItem('downloadCount', downloadCount);
+            
+        } else {
+            const result = await response.json();
+            showPasswordError(result.error || 'Invalid password');
+        }
+        
+    } catch (error) {
+        console.error('Password download error:', error);
+        showPasswordError('Download failed. Please try again.');
+    }
+}
+
+function showPasswordError(message) {
+    const errorDiv = document.getElementById('passwordError');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+}
+
 // Handle file selection
 function handleFileSelection(event) {
     const filename = event.target.value;
