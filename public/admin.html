@@ -82,6 +82,31 @@
                                 </div>
                             </div>
                             
+                            <!-- Advanced Upload Options -->
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="uploadHidden">
+                                        <label class="form-check-label" for="uploadHidden">
+                                            <i class="fas fa-eye-slash me-1"></i>
+                                            Upload as Hidden
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">View Limit</span>
+                                        <input type="number" class="form-control" id="uploadViewLimit" placeholder="No limit" min="1">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Password</span>
+                                        <input type="password" class="form-control" id="uploadPassword" placeholder="Optional">
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <!-- Upload Progress -->
                             <div id="uploadProgress" style="display: none;">
                                 <div class="progress mb-3">
@@ -130,6 +155,9 @@
                                 </div>
                                 <div class="col-md-4">
                                     <button class="btn btn-outline-secondary w-100" onclick="refreshFileList()">
+                                    <button class="btn btn-outline-info" onclick="showAdvancedOptions('${file.name}')" title="Advanced Options">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
                                         <i class="fas fa-sync-alt me-1"></i>
                                         Refresh
                                     </button>
@@ -190,6 +218,157 @@
                         <i class="fas fa-trash me-1"></i>
                         Delete
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced File Options Modal -->
+    <div class="modal fade" id="advancedOptionsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-cog me-2"></i>
+                        Advanced File Options
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h6 id="advancedFileName" class="text-primary"></h6>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden File Toggle -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-eye-slash me-2"></i>
+                                        Hidden File
+                                    </h6>
+                                    <p class="card-text small text-muted">Make file accessible only via direct link</p>
+                                    <button class="btn btn-outline-primary btn-sm" id="toggleHiddenBtn">
+                                        <i class="fas fa-toggle-off me-1"></i>
+                                        Toggle Hidden
+                                    </button>
+                                    <div id="hiddenLinkContainer" style="display: none;" class="mt-2">
+                                        <label class="form-label small">Share Link:</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="hiddenShareLink" readonly>
+                                            <button class="btn btn-outline-secondary" onclick="copyToClipboard(document.getElementById('hiddenShareLink').value)">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Password Protection -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-lock me-2"></i>
+                                        Password Protection
+                                    </h6>
+                                    <p class="card-text small text-muted">Require password for file access</p>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="password" class="form-control" id="filePassword" placeholder="Enter password">
+                                        <button class="btn btn-outline-primary" id="setPasswordBtn">
+                                            <i class="fas fa-key me-1"></i>
+                                            Set
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm" id="removePasswordBtn">
+                                        <i class="fas fa-unlock me-1"></i>
+                                        Remove Password
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- View Limit and Counter -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-eye me-2"></i>
+                                        View Limit
+                                    </h6>
+                                    <p class="card-text small text-muted">Auto-delete after specified views</p>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="number" class="form-control" id="viewLimitInput" placeholder="No limit" min="1">
+                                        <button class="btn btn-outline-primary" id="setViewLimitBtn">
+                                            <i class="fas fa-save me-1"></i>
+                                            Set
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm" id="removeViewLimitBtn">
+                                        <i class="fas fa-infinity me-1"></i>
+                                        Remove Limit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- View Counter -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-chart-bar me-2"></i>
+                                        View Counter
+                                    </h6>
+                                    <p class="card-text small text-muted">Current view count and reset option</p>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>Views: <strong id="currentViewCount">0</strong></span>
+                                        <span>Limit: <strong id="currentViewLimit">None</strong></span>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm" id="resetViewCountBtn">
+                                        <i class="fas fa-redo me-1"></i>
+                                        Reset Count
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Share Link Generator -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-share me-2"></i>
+                                        Share Link
+                                    </h6>
+                                    <p class="card-text small text-muted">Generate shareable link for this file</p>
+                                    <button class="btn btn-primary btn-sm" id="generateShareLinkBtn">
+                                        <i class="fas fa-link me-1"></i>
+                                        Generate Link
+                                    </button>
+                                    <div id="shareLinkContainer" style="display: none;" class="mt-2">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="generatedShareLink" readonly>
+                                            <button class="btn btn-outline-secondary" onclick="copyToClipboard(document.getElementById('generatedShareLink').value)">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

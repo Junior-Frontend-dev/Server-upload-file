@@ -136,6 +136,15 @@ async function uploadFiles(files) {
         formData.append('files', file);
     });
     
+    // Add advanced options
+    const isHidden = document.getElementById('uploadHidden').checked;
+    const viewLimit = document.getElementById('uploadViewLimit').value;
+    const password = document.getElementById('uploadPassword').value;
+    
+    if (isHidden) formData.append('isHidden', 'true');
+    if (viewLimit) formData.append('viewLimit', viewLimit);
+    if (password) formData.append('password', password);
+    
     showUploadProgress();
     
     try {
@@ -158,6 +167,11 @@ async function uploadFiles(files) {
         
         // Reset file input
         document.getElementById('fileInput').value = '';
+        
+        // Reset advanced options
+        document.getElementById('uploadHidden').checked = false;
+        document.getElementById('uploadViewLimit').value = '';
+        document.getElementById('uploadPassword').value = '';
         
     } catch (error) {
         console.error('Upload error:', error);
@@ -492,4 +506,311 @@ function showSuccess(message) {
 
 function showError(message) {
     alert('Error: ' + message);
+}
+
+// Advanced file options functionality
+let currentAdvancedFile = null;
+
+function showAdvancedOptions(filename) {
+    currentAdvancedFile = filename;
+    const modal = new bootstrap.Modal(document.getElementById('advancedOptionsModal'));
+    
+    // Set filename in modal
+    document.getElementById('advancedFileName').textContent = filename;
+    
+    // Load current file settings
+    loadFileSettings(filename);
+    
+    modal.show();
+}
+
+async function loadFileSettings(filename) {
+    try {
+        const response = await fetch('/api/files', {
+            headers: {
+                'Authorization': adminKey
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load file settings');
+        }
+        
+        const files = await response.json();
+        const file = files.find(f => f.name === filename);
+        
+        if (file) {
+            // Update UI based on current settings
+            updateAdvancedOptionsUI(file);
+        }
+        
+    } catch (error) {
+        console.error('Error loading file settings:', error);
+        showError('Failed to load file settings');
+    }
+}
+
+function updateAdvancedOptionsUI(file) {
+    // Update hidden status
+    const toggleBtn = document.getElementById('toggleHiddenBtn');
+    const hiddenContainer = document.getElementById('hiddenLinkContainer');
+    
+    if (file.isHidden) {
+        toggleBtn.innerHTML = '<i class="fas fa-toggle-on me-1"></i> Make Public';
+        toggleBtn.className = 'btn btn-success btn-sm';
+        if (file.hiddenToken) {
+            document.getElementById('hiddenShareLink').value = `${window.location.origin}/api/download/${file.name}?token=${file.hiddenToken}`;
+            hiddenContainer.style.display = 'block';
+        }
+    } else {
+        toggleBtn.innerHTML = '<i class="fas fa-toggle-off me-1"></i> Make Hidden';
+        toggleBtn.className = 'btn btn-outline-primary btn-sm';
+        hiddenContainer.style.display = 'none';
+    }
+    
+    // Update password status
+    const removePasswordBtn = document.getElementById('removePasswordBtn');
+    if (file.isPasswordProtected) {
+        removePasswordBtn.style.display = 'inline-block';
+    } else {
+        removePasswordBtn.style.display = 'none';
+    }
+    
+    // Update view count and limit
+    document.getElementById('currentViewCount').textContent = file.viewCount || 0;
+    document.getElementById('currentViewLimit').textContent = file.viewLimit || 'None';
+    document.getElementById('viewLimitInput').value = file.viewLimit || '';
+}
+
+// Setup event listeners for advanced options
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle hidden status
+    document.getElementById('toggleHiddenBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/toggle-hidden`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to toggle hidden status');
+            }
+            
+            showSuccess(result.message);
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error toggling hidden status:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Set password
+    document.getElementById('setPasswordBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        const password = document.getElementById('filePassword').value.trim();
+        if (!password) {
+            showError('Please enter a password');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/set-password`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to set password');
+            }
+            
+            showSuccess(result.message);
+            document.getElementById('filePassword').value = '';
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error setting password:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Remove password
+    document.getElementById('removePasswordBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/set-password`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password: '' })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to remove password');
+            }
+            
+            showSuccess(result.message);
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error removing password:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Set view limit
+    document.getElementById('setViewLimitBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        const viewLimit = parseInt(document.getElementById('viewLimitInput').value);
+        if (isNaN(viewLimit) || viewLimit < 1) {
+            showError('Please enter a valid view limit (1 or greater)');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/set-view-limit`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ viewLimit })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to set view limit');
+            }
+            
+            showSuccess(result.message);
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error setting view limit:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Remove view limit
+    document.getElementById('removeViewLimitBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/set-view-limit`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ viewLimit: null })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to remove view limit');
+            }
+            
+            showSuccess(result.message);
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error removing view limit:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Reset view count
+    document.getElementById('resetViewCountBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        if (!confirm('Are you sure you want to reset the view count for this file?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/reset-views`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to reset view count');
+            }
+            
+            showSuccess(result.message);
+            loadFileSettings(currentAdvancedFile);
+            loadAdminFiles();
+            
+        } catch (error) {
+            console.error('Error resetting view count:', error);
+            showError(error.message);
+        }
+    });
+    
+    // Generate share link
+    document.getElementById('generateShareLinkBtn').addEventListener('click', async function() {
+        if (!currentAdvancedFile) return;
+        
+        try {
+            const response = await fetch(`/api/files/${currentAdvancedFile}/generate-share-link`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': adminKey
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to generate share link');
+            }
+            
+            document.getElementById('generatedShareLink').value = result.shareUrl;
+            document.getElementById('shareLinkContainer').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error generating share link:', error);
+            showError(error.message);
+        }
+    });
+});
+
+// Copy to clipboard function
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showSuccess('Copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        showError('Failed to copy to clipboard');
+    });
 }
